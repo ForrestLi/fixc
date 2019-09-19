@@ -9,20 +9,6 @@ from fix.util import ch_delim, iter_rawmsg
 
 colorama.init()
 
-
-def set_keepalive_linux(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
-    """Set TCP keepalive on an open socket.
-
-    It activates after 1 second (after_idle_sec) of idleness,
-    then sends a keepalive ping once every 3 seconds (interval_sec),
-    and closes the connection after 5 failed ping (max_fails), or 15 seconds
-    """
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
-
-
 class UnexpectedMessageException(Exception):
 
     def __init__(self, message='', *, offending_msg):
@@ -90,11 +76,21 @@ class FixClient():
         a = self.seqnum
         self.seqnum += 1
         return a
+     
+    def _set_keepalive_linux(self, sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+         
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
+
 
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # keep the socket alive rather than disconnect after a time out period
+        self._set_keepalive_linux(self.sock)
         self.sock.connect((self.ip, self.port))
-        self.sock.settimeout(self.timeout)
+        #self.sock.settimeout(self.timeout)
 
     def reconnect(self):
         self.sock.close()
